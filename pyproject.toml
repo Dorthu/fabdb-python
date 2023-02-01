@@ -1,0 +1,23 @@
+[project]
+name = "fabdb"
+version = "0.0.1"
+authors = [
+  { name="dorthu", email="dorthu2+fabdb-python@gmail.com" },
+]
+description = "CLI and Utility for fabdb.net"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/dorthu/fabdb-python"
+"Bug Tracker" = "https://github.com/dorthu/fabdb-python/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
