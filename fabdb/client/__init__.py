@@ -1,11 +1,13 @@
-from fabdb.client import (
+from fabdb.client.types import (
     PitchValue,
     FabCard,
     FabCardArtist,
     FabCardResults,
     FabCardRuling,
-    FabDBClient,
-    FabDBError,
     FabDeck,
     FabDeckCard,
+)
+from fabdb.client.client import (
+    FabDBClient,
+    FabDBError,
 )
