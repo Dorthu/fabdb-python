@@ -97,7 +97,10 @@ class FabCard:
         self.flavor = info.get("flavor")
         self.comments = info.get("comments")
         self.image_url = info.get("image")
-        self.artist = FabCardArtist(info.get("artist", {}))
+        artist = info.get("artist")
+        if not artist:
+            artist = {}
+        self.artist = FabCardArtist(artist)
         self.rulings = [FabCardRuling(c) for c in info.get("rulings", [])]
 
         # TODO - I've never seen these returned
