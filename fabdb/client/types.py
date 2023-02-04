@@ -119,6 +119,9 @@ class FabCard:
         self.defense = stats.get("defense")
         self.pitch = PitchValue.from_int(stats.get("resource"))
 
+        # TODO - verify this assumption
+        self.type = self.keywords[-1]
+
     def __repr__(self) -> str:
         """
         A string represeentation of this card
