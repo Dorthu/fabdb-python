@@ -1,0 +1,16 @@
+CardListWidget {
+    width: 50%;
+    max-width: 50;
+    margin-right: 2;
+    border-right: solid $panel;
+}
+
+CardListWidget CardListButton {
+    width: 100%;
+    content-align: left middle;
+    background: $primary-background;
+}
+
+CardListWidget CardListButton:focus {
+    background: $secondary;
+}

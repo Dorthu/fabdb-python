@@ -4,9 +4,10 @@ from typing import Any
 import re
 
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static
+from textual.widgets import Header, Footer, Static, Button
 from textual.containers import Container
 from textual.reactive import reactive
+from textual.message import Message, MessageTarget
 
 from fabdb.client import FabDBClient, FabCard, PitchValue
 from fabdb.cli import FabDBCLIConfig
@@ -203,12 +204,49 @@ class CardWidget(Static):
         self.query_one("#block").update(self.card.bottom_right)
 
 
+class CardListButton(Button):
+    """
+    Pairs a Button with a FabCard
+    """
+    class Focus(Message):
+        def __init__(self, sender: MessageTarget, card: FabCard):
+            super().__init__(sender)
+            self.card = card
+
+    def __init__(self, card: FabCard, **kwargs):
+        super().__init__(card.name, **kwargs)
+        self.card = card
+
+    async def on_focus(self) -> None:
+        self.log("Running focus!")
+        await self.emit(self.Focus(self, self.card))
+
+
+class CardListWidget(Static):
+    """
+    Lists all cards in a given set and allows selection of them
+    """
+    card_list = reactive([])
+
+    def watch_card_list(self) -> None:
+        for c in self.card_list:
+            self.mount(CardListButton(c, classes="card-entry"))
+
+    def on_compose(self) -> ComposeResult:
+        pass
+
+    def on_clear(self) -> None:
+        entries = self.query(".card-entry")
+        for e in entries:
+            e.remove()
+
+    def on_card_list_button_focus(self, message: CardListButton.Focus) -> None:
+        self.log("Card List caught focus!")
+
 
 class FabDBApp(App):
-    CSS_PATH = ["card.css"]
-    BINDINGS = [
-        ("a", "advance_type()", "Next Type"),
-    ]
+    CSS_PATH = ["card.css", "card_list.css", "app.css"]
+    BINDINGS = []
 
 
     def __init__(self, config: FabDBCLIConfig = None):
@@ -217,6 +255,7 @@ class FabDBApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield CardListWidget()
         yield CardWidget()
         yield Footer()
 
@@ -228,12 +267,8 @@ class FabDBApp(App):
             TUICard(self.client.get_card("CRU105")),
             TUICard(self.client.get_card("throttle-yellow")),
         ]
-        self.current_card = -1
-        self.action_advance_type()
+        self.query_one("CardListWidget").card_list = self.cards
 
-    def action_advance_type(self) -> None:
-        self.current_card += 1
-        if self.current_card >= len(self.cards):
-            self.current_card = 0
-
-        self.query_one(CardWidget).card = self.cards[self.current_card]
+    def on_card_list_button_focus(self, message: CardListButton.Focus) -> None:
+        self.log("Caught focus!")
+        self.query_one("CardWidget").card = message.card
