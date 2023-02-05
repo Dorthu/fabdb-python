@@ -1,7 +1,7 @@
 
 CardWidget {
-    width: 30%;
-    min-width: 50;
+    width: 100%;
+    max-width: 50;
     border: white;
 }
 
@@ -57,6 +57,7 @@ CardWidget #rules-box {
 
 CardWidget #name {
     width: 10fr;
+    content-align: center top;
 }
 
 CardWidget #cost {
@@ -106,8 +107,9 @@ CardWidget.weapon #power {
     display: block;
 }
 
-CardWidget #space {
+CardWidget #keywords {
     width: 10fr;
+    content-align: center bottom;
 }
 
 CardWidget #block {

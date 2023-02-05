@@ -94,7 +94,8 @@ class FabCard:
         self.rarity = info.get("rarity")
         self.keywords = info.get("keywords")
         self.text = info.get("text")
-        self.flavor = info.get("flavor")
+        self.flavor = info.get("flavour")
+        self.falvour = self.flavor # in case you're so inclined
         self.comments = info.get("comments")
         self.image_url = info.get("image")
         artist = info.get("artist")
@@ -118,6 +119,8 @@ class FabCard:
         self.attack = stats.get("attack")
         self.defense = stats.get("defense")
         self.pitch = PitchValue.from_int(stats.get("resource"))
+        self.life = stats.get("life")
+        self.intellect = stats.get("intellect")
 
         # TODO - verify this assumption
         self.type = self.keywords[-1]
