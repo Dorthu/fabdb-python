@@ -3,6 +3,20 @@ from __future__ import annotations
 from enum import Enum
 from typing import Dict, Any, Tuple, Union, List
 
+
+#: CARD_TYPES includes all supertypes for cards
+CARD_TYPES = [
+    "action",
+    "reaction",
+    "equipment",
+    "hero",
+    "instant",
+    "item",
+    "weapon",
+    "resource",
+]
+
+
 class PitchValue(Enum):
     """
     Enumerates all possible pitch values
@@ -88,6 +102,7 @@ class FabCard:
     A single Flesh and Blood card
     """
     def __init__(self, info: Dict):
+        print(info)
         self.identifier = info.get("identifier")
         self.name = info.get("name")
         self.legality = info.get("legality")
@@ -122,8 +137,8 @@ class FabCard:
         self.life = stats.get("life")
         self.intellect = stats.get("intellect")
 
-        # TODO - verify this assumption
-        self.type = self.keywords[-1]
+        # computed keyword-based attributes
+        self.type, self.talents, self.subtypes = self._parse_keywords()
 
     def __repr__(self) -> str:
         """
@@ -131,6 +146,36 @@ class FabCard:
         """
         pitch_string = f"({self.pitch.name})" if self.pitch != PitchValue.none else ""
         return f"{self.name} {pitch_string}"
+
+    def _parse_keywords(self) -> Tuple[str, List[str], List[str]]:
+        """
+        Parses type, talents, and subtypes for this card.  They are returned in
+        that order.
+
+        For example, given this array of keywords, this will be the output::
+
+           ["generic", "action", "attack"]                  ("action", ["generic"], ["attack"])
+           ["draconic", "ninja", "action", "attack"]        ("action", ["draconic", "ninja"], ["attack"])
+           ["mechanologist", "hero"]                        ("hero", ["mechanologist"], [])
+        """
+        if self.keywords is None:
+            return None, None, None
+
+        for supertype in CARD_TYPES:
+            if supertype in self.keywords:
+                break
+
+        # assume we found one
+        pivot = self.keywords.index(supertype)
+        pivot_skip = 1
+        if supertype == "reaction":
+            # this is either an "attack reaction" or a "defense reaction" - determine which
+            supertype = f"{self.keywords[pivot-1]} {supertype}"
+            pivot -= 1
+            pivot_skip += 1
+        talents = self.keywords[:pivot]
+        subtypes = self.keywords[pivot+pivot_skip:]
+        return supertype, talents, subtypes
 
     @property
     def image(self):

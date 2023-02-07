@@ -1,8 +1,13 @@
-CardListWidget {
+#card-list {
     width: 50%;
     max-width: 50;
     margin-right: 2;
     border-right: solid $panel;
+    overflow-y: auto;
+}
+
+CardListWidget {
+    width: 100%
 }
 
 CardListWidget CardListButton {

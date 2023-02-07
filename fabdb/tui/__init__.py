@@ -9,18 +9,9 @@ from textual.containers import Container
 from textual.reactive import reactive
 from textual.message import Message, MessageTarget
 
-from fabdb.client import FabDBClient, FabCard, PitchValue
+from fabdb.client import FabDBClient, FabCard, FabDeckCard, PitchValue, CARD_TYPES
 from fabdb.cli import FabDBCLIConfig
 
-
-ALL_CARD_TYPES = [
-    "action",
-    "equipment",
-    "hero",
-    "instant",
-    "item",
-    "weapon",
-]
 
 ALL_COLORS = [
     "red",
@@ -33,18 +24,10 @@ ALL_COLORS = [
 STYLE_SUBSTITUTIONS = [
     (r"\*\*(.*?)\*\*", r"[b]\1[/b]"), # bolded text - has to come first
     (r"\*(.*?)\*", r"[i]\1[/i]"), # itallic text - must be after bold
-    (r"\[Resource\]", "[white on red]*[/white on red]"), # resource costs
-    (r"\[Attack\]", "[on yellow] [/on yellow]"), # attack icon
-]
-
-ALL_SUBTYPES = [
-    "attack",
-    "item",
-    "head",
-    "arms",
-    "chest",
-    "legs",
-    "off-hand",
+    (r"\[(1 )?Resource\]", "[white on red]*[/white on red]"), # resource costs
+    (r"\[(Attack|Power)\]", "[on yellow] [/on yellow]"), # attack icon
+    (r"\[Life\]", "[on green] [/on green]"), # life icon
+    (r"\[Defense\]", "[on grey23] [/on grey23]"), # block icon - TODO doesn't look great
 ]
 
 
@@ -59,10 +42,18 @@ class TUICard():
         """
         Passthrough attributes to the underlying card by default
         """
-        print(f"Looking for attr {attr}")
         if hasattr(self.card, attr):
             return getattr(self.card, attr)
         return object.__getattribute__(self, attr)
+
+    @property
+    def styled_name(self) -> str:
+        if self.name is None:
+            return ""
+
+        if isinstance(self.card, FabDeckCard):
+            return f"{self.total} x {self.name}"
+        return self.name
 
     @property
     def styled_rules(self) -> str:
@@ -86,16 +77,10 @@ class TUICard():
         if self.keywords is None:
             return ""
 
-        keyword_list = self.keywords[:] # copy so we don't modify the original
-        for i, val in enumerate(keyword_list):
-            if val in ALL_SUBTYPES:
-                i -= 1
-                break
-
-        if i < len(keyword_list) - 1:
-            keyword_list.insert(i+1, "-")
-
-        return " ".join([c.capitalize() for c in keyword_list])
+        talents = [c.capitalize() for c in self.talents]
+        subtypes = [c.capitalize() for c in self.subtypes]
+        separator = " - " if subtypes else ""
+        return f"{' '.join(talents)} {self.type.capitalize()}{separator}{' '.join(subtypes)}"
 
     @property
     def top_left(self) -> str:
@@ -112,7 +97,9 @@ class TUICard():
         """
         if self.cost:
             return str(self.cost)
-        return ""
+        if self.type in ("hero", "equipment", "weapon"):
+            return ""
+        return "0"
 
     @property
     def bottom_left(self) -> str:
@@ -185,7 +172,7 @@ class CardWidget(Static):
 
         # clear color and class
         self.remove_class(*ALL_COLORS)
-        self.remove_class(*ALL_CARD_TYPES)
+        self.remove_class(*CARD_TYPES)
 
         # set new color
         self.add_class(self.card.pitch.name)
@@ -194,7 +181,7 @@ class CardWidget(Static):
         self.add_class(self.card.type)
 
         # set text values
-        self.query_one("#name").update(get_or_default(self.card, "name", ""))
+        self.query_one("#name").update(self.card.name)
         self.query_one("#pitch").update(self.card.top_left)
         self.query_one("#cost").update(self.card.top_right)
         self.query_one("#rules").update(self.card.styled_rules)
@@ -214,7 +201,7 @@ class CardListButton(Button):
             self.card = card
 
     def __init__(self, card: FabCard, **kwargs):
-        super().__init__(card.name, **kwargs)
+        super().__init__(card.styled_name, **kwargs)
         self.card = card
 
     async def on_focus(self) -> None:
@@ -226,6 +213,10 @@ class CardListWidget(Static):
     """
     Lists all cards in a given set and allows selection of them
     """
+    BINDINGS = [
+        ("up", "focus_previous", "previous"),
+        ("down", "focus_next", "next"),
+    ]
     card_list = reactive([])
 
     def watch_card_list(self) -> None:
@@ -246,8 +237,6 @@ class CardListWidget(Static):
 
 class FabDBApp(App):
     CSS_PATH = ["card.css", "card_list.css", "app.css"]
-    BINDINGS = []
-
 
     def __init__(self, config: FabDBCLIConfig = None):
         super().__init__()
@@ -255,19 +244,14 @@ class FabDBApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield CardListWidget()
+        yield Container(CardListWidget(), id="card-list")
         yield CardWidget()
         yield Footer()
 
     def on_mount(self) -> None:
         self.client = FabDBClient()
-        self.cards = [
-            TUICard(self.client.get_card("WTR001")),
-            TUICard(self.client.get_card("UPR086")),
-            TUICard(self.client.get_card("CRU105")),
-            TUICard(self.client.get_card("throttle-yellow")),
-        ]
-        self.query_one("CardListWidget").card_list = self.cards
+        self.deck = self.client.get_deck("JReVoRdW")
+        self.query_one("CardListWidget").card_list = [TUICard(c) for c in self.deck.cards]
 
     def on_card_list_button_focus(self, message: CardListButton.Focus) -> None:
         self.log("Caught focus!")

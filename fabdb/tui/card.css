@@ -75,6 +75,10 @@ CardWidget.equipment #cost {
     display: none;
 }
 
+CardWidget.weapon #cost {
+    display: none;
+}
+
 CardWidget #flavor {
     margin-top: 1;
     color: $text-muted;
