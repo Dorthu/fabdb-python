@@ -14,8 +14,13 @@ CardListWidget CardListButton {
     width: 100%;
     content-align: left middle;
     background: $primary-background;
+    text-style: none;
 }
 
 CardListWidget CardListButton:focus {
     background: $secondary;
+}
+
+CardListWidget .deck-section {
+    text-style: bold;
 }

@@ -213,7 +213,7 @@ class FabCardResults:
 
         # initialize empty pages
         self._pages = [None for i in range(self._total_pages)]
-        
+
         cur_page = meta.get("current_page") - 1
         self._load_page(cur_page, info.get("data", []))
 
@@ -287,7 +287,11 @@ class FabDeck:
         self.total_votes = info.get("totalVotes")
         self.my_vote = info.get("myVote")
 
-        self.cards = self.sideboard = []
+        self.cards = []
+        self.sideboard = []
+        self.hero = None
+        self.weapons = []
+        self.equipment = []
         self._load_cards(info.get("cards", []), self.cards)
         self._load_cards(info.get("sideboard", []), self.sideboard)
 
@@ -295,8 +299,17 @@ class FabDeck:
         """
         Loads the incoming array of fab card data into the given list (deck or sideboard)
         """
-        new_cards = [FabDeckCard(c) for c in cards]
-        into += new_cards
+        for c in cards:
+            new_card = FabDeckCard(c)
+
+            if "hero" in new_card.keywords:
+                self.hero = new_card
+            elif "weapon" in new_card.keywords:
+                self.weapons.append(new_card)
+            elif "equipment" in new_card.keywords:
+                self.equipment.append(new_card)
+            else:
+                into.append(new_card)
 
     def __repr__(self) -> str:
         return f"{self.name}"

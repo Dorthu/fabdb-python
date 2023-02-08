@@ -4,12 +4,19 @@ from typing import Any
 import re
 
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static, Button
+from textual.widgets import Header, Footer, Static, Button, ListView, ListItem
 from textual.containers import Container
 from textual.reactive import reactive
 from textual.message import Message, MessageTarget
 
-from fabdb.client import FabDBClient, FabCard, FabDeckCard, PitchValue, CARD_TYPES
+from fabdb.client import (
+    FabDBClient,
+    FabCard,
+    FabDeck,
+    FabDeckCard,
+    PitchValue,
+    CARD_TYPES,
+)
 from fabdb.cli import FabDBCLIConfig
 
 
@@ -209,7 +216,7 @@ class CardListButton(Button):
         await self.emit(self.Focus(self, self.card))
 
 
-class CardListWidget(Static):
+class CardListWidget(Static): #ListView):
     """
     Lists all cards in a given set and allows selection of them
     """
@@ -217,9 +224,12 @@ class CardListWidget(Static):
         ("up", "focus_previous", "previous"),
         ("down", "focus_next", "next"),
     ]
-    card_list = reactive([])
+    card_list = reactive(None)
 
     def watch_card_list(self) -> None:
+        if self.card_list is None:
+            return
+
         for c in self.card_list:
             self.mount(CardListButton(c, classes="card-entry"))
 
@@ -234,6 +244,31 @@ class CardListWidget(Static):
     def on_card_list_button_focus(self, message: CardListButton.Focus) -> None:
         self.log("Card List caught focus!")
 
+class DeckListWidget(CardListWidget):
+    """
+    Lists cards like a CardListWidget, but includes sections for hero, weapons,
+    equipment, cards, and sideboard
+    """
+    def watch_card_list(self) -> None:
+        if self.card_list is None:
+            return
+
+        if not isinstance(self.card_list, FabDeck):
+            raise ValueError(f"DeckListWidget must only receive FabDecks, but got {type(self.card_list)}")
+
+        self._mount_section("Hero", [self.card_list.hero])
+        self._mount_section("Weapons", self.card_list.weapons)
+        self._mount_section("Equipment", self.card_list.equipment)
+        self._mount_section("Cards", self.card_list.cards)
+        if self.card_list.sideboard:
+            self._mount_section("Sidebaord", self.card_list.sideboard)
+
+    def _mount_section(self, title: str, cards: List[FabDeckCard]) -> None:
+        # s/mount/append for ListView widget
+        self.mount(Static(title, classes="deck-section"))
+        for c in cards:
+            self.mount(CardListButton(TUICard(c), classes="card-entry"))
+
 
 class FabDBApp(App):
     CSS_PATH = ["card.css", "card_list.css", "app.css"]
@@ -244,14 +279,14 @@ class FabDBApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Container(CardListWidget(), id="card-list")
+        yield Container(DeckListWidget(), id="card-list")
         yield CardWidget()
         yield Footer()
 
     def on_mount(self) -> None:
         self.client = FabDBClient()
         self.deck = self.client.get_deck("JReVoRdW")
-        self.query_one("CardListWidget").card_list = [TUICard(c) for c in self.deck.cards]
+        self.query_one("CardListWidget").card_list = self.deck
 
     def on_card_list_button_focus(self, message: CardListButton.Focus) -> None:
         self.log("Caught focus!")

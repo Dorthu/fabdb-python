@@ -31,6 +31,10 @@ CardWidget.equipment #color-bar {
     display: none;
 }
 
+CardWidget.weapon #color-bar {
+    display: none;
+}
+
 CardWidget #top {
     layout: horizontal;
     height: auto;
@@ -45,6 +49,10 @@ CardWidget.hero #pitch {
 }
 
 CardWidget.equipment #pitch {
+    display: none;
+}
+
+CardWidget.weapon #pitch {
     display: none;
 }
 
