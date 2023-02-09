@@ -5,7 +5,7 @@ import re
 
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static, Button, ListView, ListItem
-from textual.containers import Container
+from textual.containers import Container, Vertical, Horizontal
 from textual.reactive import reactive
 from textual.message import Message, MessageTarget
 
@@ -198,7 +198,7 @@ class CardWidget(Static):
         self.query_one("#block").update(self.card.bottom_right)
 
 
-class CardListButton(Button):
+class CardListButton(Static):
     """
     Pairs a Button with a FabCard
     """
@@ -210,6 +210,9 @@ class CardListButton(Button):
     def __init__(self, card: FabCard, **kwargs):
         super().__init__(card.styled_name, **kwargs)
         self.card = card
+
+    def on_mount(self) -> None:
+        self.can_focus = True
 
     async def on_focus(self) -> None:
         self.log("Running focus!")
@@ -269,6 +272,49 @@ class DeckListWidget(CardListWidget):
         for c in cards:
             self.mount(CardListButton(TUICard(c), classes="card-entry"))
 
+class DeckStatsWidget(Static):
+    """
+    Shows deck stats
+    """
+    deck = reactive(None)
+
+    def compose(self) -> ComposeResult:
+        yield Static("Deck Name", id="deck-name")
+        yield Static("Card Counts:", id="card-count-label")
+        yield Horizontal(
+            Static("Total:", id="card-count"),
+            Static("Deck:", id="deck-count"),
+            Static("Sideboard:", id="sideboard-count"),
+        )
+        yield Static("Pitch Curve:")
+        yield Horizontal(
+            Static(id="none"),
+            Static(id="red"),
+            Static(id="yellow"),
+            Static(id="blue"),
+            id="pitch-percentage",
+        )
+
+    def watch_deck(self) -> None:
+        if self.deck is None:
+            return
+
+        self.query_one("#deck-name").update(self.deck.name)
+        # TODO - these are total FabDeckCards, which aren't the same as the actual number of cards in the
+        # deck as each may actually represent up to 3 FabCards
+        self.query_one("#card-count").update(f"Total: {len(self.deck.cards) + len(self.deck.sideboard)}")
+        self.query_one("#deck-count").update(f"Deck: {len(self.deck.cards)}")
+        self.query_one("#sideboard-count").update(f"Sideboard: {len(self.deck.sideboard)}")
+
+        pitch_counts = [0, 0, 0, 0]
+        for c in self.deck.cards:
+            pitch_counts[c.pitch.value] += c.total
+
+        self.query_one("#pitch-percentage #none").styles.width = f"{pitch_counts[0]}fr"
+        self.query_one("#pitch-percentage #red").styles.width = f"{pitch_counts[1]}fr"
+        self.query_one("#pitch-percentage #yellow").styles.width = f"{pitch_counts[2]}fr"
+        self.query_one("#pitch-percentage #blue").styles.width = f"{pitch_counts[3]}fr"
+
 
 class FabDBApp(App):
     CSS_PATH = ["card.css", "card_list.css", "app.css"]
@@ -280,13 +326,18 @@ class FabDBApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield Container(DeckListWidget(), id="card-list")
-        yield CardWidget()
+        yield Vertical(
+            DeckStatsWidget(),
+            CardWidget(),
+            id="right-panel",
+        )
         yield Footer()
 
     def on_mount(self) -> None:
         self.client = FabDBClient()
         self.deck = self.client.get_deck("JReVoRdW")
         self.query_one("CardListWidget").card_list = self.deck
+        self.query_one("DeckStatsWidget").deck = self.deck
 
     def on_card_list_button_focus(self, message: CardListButton.Focus) -> None:
         self.log("Caught focus!")

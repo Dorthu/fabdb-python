@@ -1,3 +1,8 @@
+#right-panel {
+    align: center top;
+    width: 50%;
+}
+
 #card-list {
     width: 50%;
     max-width: 50;
@@ -22,5 +27,50 @@ CardListWidget CardListButton:focus {
 }
 
 CardListWidget .deck-section {
+    padding-top: 1;
     text-style: bold;
+}
+
+DeckStatsWidget {
+    border: solid grey;
+    width: 100%;
+}
+
+DeckStatsWidget #deck-name {
+    content-align: center top;
+    margin-bottom: 1;
+    text-style: underline;
+}
+
+DeckStatsWidget #card-count {
+    width: 1fr;
+}
+
+
+DeckStatsWidget #deck-count {
+    width: 1fr;
+}
+
+DeckStatsWidget #sideboard-count {
+    width: 1fr;
+}
+
+DeckStatsWidget #pitch-percentage {
+    margin-bottom: 1;
+}
+
+DeckStatusWidget #none {
+    background: $primary;
+}
+
+DeckStatsWidget #red {
+    background: red;
+}
+
+DeckStatsWidget #yellow {
+    background: yellow;
+}
+
+DeckStatsWidget #blue {
+    background: blue;
 }
