@@ -4,7 +4,7 @@ from typing import Any
 import re
 
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static, Button, ListView, ListItem
+from textual.widgets import Header, Footer, Static, Button, ListView, ListItem, Input
 from textual.containers import Container, Vertical, Horizontal
 from textual.reactive import reactive
 from textual.message import Message, MessageTarget
@@ -300,11 +300,16 @@ class DeckStatsWidget(Static):
             return
 
         self.query_one("#deck-name").update(self.deck.name)
-        # TODO - these are total FabDeckCards, which aren't the same as the actual number of cards in the
-        # deck as each may actually represent up to 3 FabCards
-        self.query_one("#card-count").update(f"Total: {len(self.deck.cards) + len(self.deck.sideboard)}")
-        self.query_one("#deck-count").update(f"Deck: {len(self.deck.cards)}")
-        self.query_one("#sideboard-count").update(f"Sideboard: {len(self.deck.sideboard)}")
+
+        deck_count = sideboard_count = 0
+        for c in self.deck.cards:
+            deck_count += c.total
+        for c in self.deck.sideboard:
+            sideboard_count += c.total
+
+        self.query_one("#card-count").update(f"Total: {deck_count + sideboard_count}")
+        self.query_one("#deck-count").update(f"Deck: {deck_count}")
+        self.query_one("#sideboard-count").update(f"Sideboard: {sideboard_count}")
 
         pitch_counts = [0, 0, 0, 0]
         for c in self.deck.cards:
@@ -315,9 +320,36 @@ class DeckStatsWidget(Static):
         self.query_one("#pitch-percentage #yellow").styles.width = f"{pitch_counts[2]}fr"
         self.query_one("#pitch-percentage #blue").styles.width = f"{pitch_counts[3]}fr"
 
+class DeckSelector(Container):
+    """
+    A panel that comes up from the bottom of the screen to allow deck switching
+    """
+    class DeckSearch(Message):
+        def __init__(self, sender: MessageTarget, query: str):
+            super().__init__(sender)
+            self.query = query
+
+    def compose(self) -> ComposeResult:
+        yield Static("Deck Search", id="title")
+        yield Static("Deck URL or ID:", classes="label")
+        yield Input(placeholder="Deck ID", id="deck-id")
+
+    def on_mount(self) -> None:
+        self.query_one("Input").focus()
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        """
+        When you press enter in the search box
+        """
+        self.log("Serach!")
+        await self.emit(self.DeckSearch(self, event.input.value))
+
 
 class FabDBApp(App):
     CSS_PATH = ["card.css", "card_list.css", "app.css"]
+    BINDINGS = [
+        ("s", "toggle_search", "Search"),
+    ]
 
     def __init__(self, config: FabDBCLIConfig = None):
         super().__init__()
@@ -331,14 +363,27 @@ class FabDBApp(App):
             CardWidget(),
             id="right-panel",
         )
+        yield DeckSelector()
         yield Footer()
 
     def on_mount(self) -> None:
         self.client = FabDBClient()
-        self.deck = self.client.get_deck("JReVoRdW")
-        self.query_one("CardListWidget").card_list = self.deck
-        self.query_one("DeckStatsWidget").deck = self.deck
 
     def on_card_list_button_focus(self, message: CardListButton.Focus) -> None:
         self.log("Caught focus!")
         self.query_one("CardWidget").card = message.card
+
+    def on_deck_selector_deck_search(self, event: DeckSelector.DeckSearch) -> None:
+        self.log("deck search!!!")
+        self.deck = self.client.get_deck(event.query)
+        self.action_toggle_search()
+        self.query_one("CardListWidget").card_list = self.deck
+        self.query_one("DeckStatsWidget").deck = self.deck
+        self.query_one("CardListWidget").query("CardListButton").first().focus()
+
+    def action_toggle_search(self) -> None:
+        panel = self.query_one("DeckSelector")
+        if panel.has_class("-hidden"):
+            panel.remove_class("-hidden")
+        else:
+            panel.add_class("-hidden")

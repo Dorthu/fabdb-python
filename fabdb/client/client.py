@@ -87,6 +87,9 @@ class FabDBClient:
 
         if result.status_code != 200:
             raise FabDBError(result.content, result.status_code)
+        if result.headers.get("Content-Type") != "application/json":
+            # TODO - better error here
+            raise FabDBError(result.headers, result.status_code)
 
         return result.json()
 
