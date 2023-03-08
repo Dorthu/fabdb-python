@@ -7,7 +7,7 @@ from fabdb.tui import FabDBApp
 
 def main():
     # peek to see if we were called in interactive mode
-    parser = ArgumentParser()
+    parser = ArgumentParser(add_help=False)
     parser.add_argument("action")
     parsed, _ = parser.parse_known_args()
 

@@ -376,10 +376,6 @@ class FabDeckBrowser(Screen):
         ("escape", "app.pop_screen", "Back"),
     ]
 
-    def __init__(self, config: FabDBCLIConfig = None):
-        super().__init__()
-        self._config = config
-
     def compose(self) -> ComposeResult:
         yield Header()
         yield Container(DeckListWidget(), id="card-list")
@@ -422,6 +418,10 @@ class FabDBApp(App):
         ("d", "app.push_screen('decks')", "Deck Search"),
         ("t", "app.push_screen('test')", "Test"),
     ]
+
+    def __init__(self, config: FabDBCLIConfig = None):
+        super().__init__()
+        self._config = config
 
     def compose(self) -> ComposeResult:
         yield Header()

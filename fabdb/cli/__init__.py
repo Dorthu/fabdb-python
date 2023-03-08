@@ -7,10 +7,13 @@ from argparse import ArgumentParser
 from configparser import ConfigParser
 import os
 
+from rich import print as rprint
+
 from fabdb.client import (
     FabDBClient,
     FabDBError,
 )
+from fabdb.cli.models import FabCliCard
 
 
 class FabDBCLIConfig():
@@ -67,8 +70,8 @@ class FabDBCLI():
         """
         Handles a CLI call
         """
-        parser = ArgumentParser("fabdb-cli")
-        parser.add_argument("action")
+        parser = ArgumentParser("fabdb-cli", add_help=False)
+        parser.add_argument("action", help=f"One of {', '.join(self._actions)}")
         parsed, remaining = parser.parse_known_args(args)
 
         if parsed.action in self._actions:
@@ -96,7 +99,7 @@ class FabDBCLI():
         parsed = parser.parse_args(args)
 
         res = self._client.get_card(parsed.slug)
-        print(res)
+        rprint(FabCliCard(res).render())
 
     def search(self, args: List[str]) -> None:
         """

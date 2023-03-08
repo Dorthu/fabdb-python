@@ -102,7 +102,6 @@ class FabCard:
     A single Flesh and Blood card
     """
     def __init__(self, info: Dict):
-        print(info)
         self.identifier = info.get("identifier")
         self.name = info.get("name")
         self.legality = info.get("legality")
