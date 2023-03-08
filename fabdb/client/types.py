@@ -295,6 +295,8 @@ class FabDeck:
         self._load_cards(info.get("cards", []), self.cards)
         self._load_cards(info.get("sideboard", []), self.sideboard)
 
+        self._sort()
+
     def _load_cards(self, cards: List[Dict], into: List):
         """
         Loads the incoming array of fab card data into the given list (deck or sideboard)
@@ -313,5 +315,16 @@ class FabDeck:
 
     def __repr__(self) -> str:
         return f"{self.name}"
+
+    def _sort(self) -> None:
+        """
+        Sorts all card sections by pitch value, then name
+        """
+        sorter = lambda o: (o.pitch.value, o.name)
+
+        self.cards = sorted(self.cards, key=sorter)
+        self.sideboard = sorted(self.sideboard, key=sorter)
+        self.weapons = sorted(self.weapons, key=sorter)
+        self.equipment = sorted(self.equipment, key=sorter)
 
 

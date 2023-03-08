@@ -8,6 +8,7 @@ from textual.widgets import Header, Footer, Static, Button, ListView, ListItem, 
 from textual.containers import Container, Vertical, Horizontal
 from textual.reactive import reactive
 from textual.message import Message, MessageTarget
+from textual.screen import Screen
 
 from fabdb.client import (
     FabDBClient,
@@ -32,6 +33,8 @@ STYLE_SUBSTITUTIONS = [
     (r"\*\*(.*?)\*\*", r"[b]\1[/b]"), # bolded text - has to come first
     (r"\*(.*?)\*", r"[i]\1[/i]"), # itallic text - must be after bold
     (r"\[(1 )?Resource\]", "[white on red]*[/white on red]"), # resource costs
+    (r"\[2 Resource\]", "[white on red]**[/white on red]"), # some older cards resource costs
+    (r"\[3 Resource\]", "[white on red]***[/white on red]"), # some older cards resource costs
     (r"\[(Attack|Power)\]", "[on yellow] [/on yellow]"), # attack icon
     (r"\[Life\]", "[on green] [/on green]"), # life icon
     (r"\[Defense\]", "[on grey23] [/on grey23]"), # block icon - TODO doesn't look great
@@ -216,7 +219,7 @@ class CardListButton(Static):
 
     async def on_focus(self) -> None:
         self.log("Running focus!")
-        await self.emit(self.Focus(self, self.card))
+        await self.post_message(self.Focus(self, self.card))
 
 
 class CardListWidget(Static): #ListView):
@@ -341,14 +344,36 @@ class DeckSelector(Container):
         """
         When you press enter in the search box
         """
-        self.log("Serach!")
-        await self.emit(self.DeckSearch(self, event.input.value))
+        self.log(f"Searching for {event.input.value}")
+        await self.post_message(self.DeckSearch(self, event.input.value))
 
 
-class FabDBApp(App):
-    CSS_PATH = ["card.css", "card_list.css", "app.css"]
+class CardSearchPanel(Container):
+    """
+    A panel that comes up from the bottom of the screen to allow card searching
+    """
+    class CardSearch(Message):
+        def __init__(self,  sender: MessageTarget, keywords: str):
+            super().__init__(sender)
+            self.keywords = keywords
+
+    def compose(self) -> ComposeResult:
+        yield Static("Card Search", id="title")
+        yield Static("Keyword:", classes="label")
+        yield Input(placeholder="Search Text", id="keywords")
+
+    def on_mount(self) -> None:
+        self.query_one("Input").focus()
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.log(f"Searching for cards with {event.input.value}")
+        await self.post_message(self.CardSearch(self, event.input.value))
+
+
+class FabDeckBrowser(Screen):
     BINDINGS = [
         ("s", "toggle_search", "Search"),
+        ("escape", "app.pop_screen", "Back"),
     ]
 
     def __init__(self, config: FabDBCLIConfig = None):
@@ -363,18 +388,16 @@ class FabDBApp(App):
             CardWidget(),
             id="right-panel",
         )
-        yield DeckSelector()
+        yield DeckSelector(id="search-panel")
         yield Footer()
 
     def on_mount(self) -> None:
         self.client = FabDBClient()
 
     def on_card_list_button_focus(self, message: CardListButton.Focus) -> None:
-        self.log("Caught focus!")
         self.query_one("CardWidget").card = message.card
 
     def on_deck_selector_deck_search(self, event: DeckSelector.DeckSearch) -> None:
-        self.log("deck search!!!")
         self.deck = self.client.get_deck(event.query)
         self.action_toggle_search()
         self.query_one("CardListWidget").card_list = self.deck
@@ -382,8 +405,30 @@ class FabDBApp(App):
         self.query_one("CardListWidget").query("CardListButton").first().focus()
 
     def action_toggle_search(self) -> None:
-        panel = self.query_one("DeckSelector")
+        panel = self.query_one("#search-panel")
         if panel.has_class("-hidden"):
             panel.remove_class("-hidden")
+            panel.query_one("Input").focus()
         else:
             panel.add_class("-hidden")
+
+
+class FabDBApp(App):
+    CSS_PATH = ["card.css", "card_list.css", "app.css"]
+    SCREENS = {
+        "decks": FabDeckBrowser(),
+    }
+    BINDINGS = [
+        ("d", "app.push_screen('decks')", "Deck Search"),
+        ("t", "app.push_screen('test')", "Test"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Button("Card Search", id="card-search")
+        yield Button("Deck Browser", id="deck-browser")
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "deck-browser":
+            self.push_screen(FabDeckBrowser())
