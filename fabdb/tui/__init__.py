@@ -19,6 +19,7 @@ from fabdb.client import (
     CARD_TYPES,
 )
 from fabdb.cli import FabDBCLIConfig
+from fabdb.util import richify_rules_text
 
 
 ALL_COLORS = [
@@ -26,18 +27,6 @@ ALL_COLORS = [
     "yellow",
     "blue",
     "none",
-]
-
-
-STYLE_SUBSTITUTIONS = [
-    (r"\*\*(.*?)\*\*", r"[b]\1[/b]"), # bolded text - has to come first
-    (r"\*(.*?)\*", r"[i]\1[/i]"), # itallic text - must be after bold
-    (r"\[(1 )?Resource\]", "[white on red]*[/white on red]"), # resource costs
-    (r"\[2 Resource\]", "[white on red]**[/white on red]"), # some older cards resource costs
-    (r"\[3 Resource\]", "[white on red]***[/white on red]"), # some older cards resource costs
-    (r"\[(Attack|Power)\]", "[on yellow] [/on yellow]"), # attack icon
-    (r"\[Life\]", "[on green] [/on green]"), # life icon
-    (r"\[Defense\]", "[on grey23] [/on grey23]"), # block icon - TODO doesn't look great
 ]
 
 
@@ -73,11 +62,7 @@ class TUICard():
         if self.text is None:
             return ""
 
-        styled = self.text
-        for pattern, replacement in STYLE_SUBSTITUTIONS:
-            styled = re.sub(pattern, replacement, styled)
-
-        return styled
+        return richify_rules_text(self.text)
 
     @property
     def styled_keywords(self) -> str:

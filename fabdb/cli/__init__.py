@@ -96,10 +96,11 @@ class FabDBCLI():
         """
         parser = ArgumentParser("fabdb-cli show")
         parser.add_argument("slug")
+        parser.add_argument("--long", "-l", action="store_true", help="Show long output")
         parsed = parser.parse_args(args)
 
         res = self._client.get_card(parsed.slug)
-        rprint(FabCliCard(res).render())
+        rprint(FabCliCard(res).render(short=not parsed.long))
 
     def search(self, args: List[str]) -> None:
         """
