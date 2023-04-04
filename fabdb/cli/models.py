@@ -1,6 +1,6 @@
 from rich.panel import Panel
 
-from fabdb.client import FabCard, PitchValue
+from fabdb.client import FabCard, PitchValue, FabCardDiff, FabDeckDiff
 from fabdb.util import richify_rules_text
 
 
@@ -55,3 +55,60 @@ class FabCliCard:
         width=(self.card.pitch.value + len(self.card.name) + 11),
         border_style="none",
         )
+
+class FabCliDeckDiff:
+    def __init__(self, diff: FabDeckDiff):
+        self.diff = diff
+
+    def render(self) -> str:
+        """
+        Outputs a rich-rendered version of the included deck diff
+        """
+        # first few lines are pretty static
+        lines = [
+            f"diff --fabdb a:https://fabdb.net/decks/{self.diff.a.slug} b:https://fabdb.net/decks/{self.diff.b.slug}",
+            "",
+            "[u]Hero:[/u]",
+            self._style(self.diff.hero),
+            "",
+            "[u]Weapons:[/u]",
+        ]
+
+        # add a styled line for each weapon
+        lines += [self._style(w) for w in self.diff.weapons]
+
+        lines += [
+            "",
+            "[u]Equipment:[/u]",
+        ]
+        lines += [self._style(e) for e in self.diff.equipment]
+
+        lines += [
+            "",
+            "[u]Cards:[/u]",
+        ]
+        lines += [self._style(c) for c in self.diff.cards]
+
+        if len(self.diff.sideboard):
+            lines += [
+                "",
+                "[u]Sideboard:[/u]",
+            ]
+            lines += [self._style(c) for c in self.diff.sideboard]
+
+        return "\n".join(lines)
+
+    def _style(self, cdiff: FabCardDiff) -> str:
+        """
+        Applies rich styling to a single line
+        """
+        output = []
+        for c in cdiff.long.splitlines():
+            if c.startswith("-"):
+                output += [f"[red]{c}[/red]"]
+            elif c.startswith("+"):
+                output += [f"[green]{c}[/green]"]
+            else:
+                output += [f"[white]{c}[/white]"]
+
+        return "\n".join(output)

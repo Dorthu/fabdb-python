@@ -12,3 +12,7 @@ from fabdb.client.client import (
     FabDBClient,
     FabDBError,
 )
+from fabdb.client.extended import (
+    FabCardDiff,
+    FabDeckDiff,
+)

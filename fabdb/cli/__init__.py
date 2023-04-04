@@ -12,8 +12,9 @@ from rich import print as rprint
 from fabdb.client import (
     FabDBClient,
     FabDBError,
+    FabDeckDiff,
 )
-from fabdb.cli.models import FabCliCard
+from fabdb.cli.models import FabCliCard, FabCliDeckDiff
 
 
 class FabDBCLIConfig():
@@ -64,7 +65,7 @@ class FabDBCLI():
         key, secret = self._config.api_creds
         self._client = FabDBClient(api_key=key, secret_key=secret)
 
-        self._actions = ["deck", "show", "search"]
+        self._actions = ["deck", "diff", "show", "search"]
         
     def run(self, args: List[str]) -> None:
         """
@@ -77,7 +78,7 @@ class FabDBCLI():
         if parsed.action in self._actions:
             getattr(self, parsed.action)(remaining)
         else:
-            parser.help()
+            parser.print_help()
 
     def deck(self, args: List[str]) -> None:
         """
@@ -89,6 +90,21 @@ class FabDBCLI():
 
         res = self._client.get_deck(parsed.slug)
         print(res)
+
+    def diff(self, args: List[str]) -> None:
+        """
+        Diffs two decks by deck codes or URLs
+        """
+        parser = ArgumentParser("fabdb-cli deck-diff")
+        parser.add_argument("deck_a")
+        parser.add_argument("deck_b")
+        parsed = parser.parse_args(args)
+
+        da = self._client.get_deck(parsed.deck_a)
+        db = self._client.get_deck(parsed.deck_b)
+        diff = FabCliDeckDiff(FabDeckDiff(da, db))
+
+        rprint(diff.render())
 
     def show(self, args: List[str]) -> None:
         """

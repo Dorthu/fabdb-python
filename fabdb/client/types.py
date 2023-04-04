@@ -102,6 +102,7 @@ class FabCard:
     A single Flesh and Blood card
     """
     def __init__(self, info: Dict):
+        self._raw_info = info
         self.identifier = info.get("identifier")
         self.name = info.get("name")
         self.legality = info.get("legality")
@@ -138,6 +139,12 @@ class FabCard:
 
         # computed keyword-based attributes
         self.type, self.talents, self.subtypes = self._parse_keywords()
+
+    def __eq__(self, other: FabCard) -> bool:
+        """
+        Returns if two cards are the same (based on name and pitch)
+        """
+        return self.name == other.name and self.pitch == other.pitch
 
     def __repr__(self) -> str:
         """
@@ -190,6 +197,12 @@ class FabDeckCard(FabCard):
     def __init__(self, info: Dict):
         super().__init__(info)
         self.total = info.get("total")
+
+    def __eq__(self, other: FabDeckCard) -> bool:
+        """
+        Like our parent class' equality check, but also considering totals
+        """
+        return super().__eq__(other) and self.total == other.total
 
     def __repr__(self) -> str:
         srepr = super().__repr__()
