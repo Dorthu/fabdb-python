@@ -15,6 +15,7 @@ from fabdb.client import (
     FabCard,
     FabDeck,
     FabDeckCard,
+    FabDeckDiff,
     PitchValue,
     CARD_TYPES,
 )
@@ -206,6 +207,31 @@ class CardListButton(Static):
         self.log("Running focus!")
         await self.post_message(self.Focus(self, self.card))
 
+class CardDiffListButton(CardListButton):
+    """
+    A CardListButton taylored for FabCardDiffs
+    """
+    def __init__(self, card: TUICard, diff: FabCardDiff, **kwargs):
+        super().__init__(card, **kwargs)
+        self.diff = diff
+        self.renderable = self._make_renderable()
+
+    def _make_renderable(self) -> str:
+        """
+        Returns a stylized version of this button's text
+        """
+        ret = []
+        lines = self.diff.long.splitlines()
+        for l in lines:
+            if l.startswith("+"):
+                ret.append(f"[green]{l}[/green]")
+            elif l.startswith("-"):
+                ret.append(f"[red]{l}[/red]")
+            else:
+                ret.append(l)
+        return "\n".join(ret)
+
+
 
 class CardListWidget(Static): #ListView):
     """
@@ -244,8 +270,10 @@ class DeckListWidget(CardListWidget):
         if self.card_list is None:
             return
 
-        if not isinstance(self.card_list, FabDeck):
-            raise ValueError(f"DeckListWidget must only receive FabDecks, but got {type(self.card_list)}")
+        if not isinstance(self.card_list, FabDeck) and not isinstance(self.card_list, FabDeckDiff):
+            raise ValueError(
+                f"DeckListWidget must only receive FabDecks or FabDeckDiffs, but got {type(self.card_list)}"
+            )
 
         self._mount_section("Hero", [self.card_list.hero])
         self._mount_section("Weapons", self.card_list.weapons)
@@ -259,6 +287,15 @@ class DeckListWidget(CardListWidget):
         self.mount(Static(title, classes="deck-section"))
         for c in cards:
             self.mount(CardListButton(TUICard(c), classes="card-entry"))
+
+class DeckDiffListWidget(DeckListWidget):
+    """
+    A special DeckListWidget that handles card diffs instead
+    """
+    def _mount_section(self, title: str, cards: List[FabCardDiff]) -> None:
+        self.mount(Static(title, classes="deck-section"))
+        for c in cards:
+            self.mount(CardDiffListButton(TUICard(c.card), c, classes="card-entry"))
 
 class DeckStatsWidget(Static):
     """
@@ -323,7 +360,7 @@ class DeckSelector(Container):
         yield Input(placeholder="Deck ID", id="deck-id")
 
     def on_mount(self) -> None:
-        self.query_one("Input").focus()
+        self.query("Input").first().focus()
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         """
@@ -331,6 +368,37 @@ class DeckSelector(Container):
         """
         self.log(f"Searching for {event.input.value}")
         await self.post_message(self.DeckSearch(self, event.input.value))
+
+
+class DeckDiffSelector(DeckSelector):
+    """
+    Allows entry of two deck slugs for diffing
+    """
+    class DeckDiffSearch(Message):
+        def __init__(self, sender: MessageTarget, a_query: str, b_query: str):
+            super().__init__(sender)
+            self.a_query = a_query
+            self.b_query = b_query
+
+    def compose(self) -> ComposeResult:
+        yield Static("Deck Search", id="title")
+        yield Static("Deck URL or ID:", classes="label")
+        # TODO - placeholder values for easier testing
+        yield Input(value="JReVoRdW", placeholder="Deck A", id="deck-id-a")
+        yield Static("Deck URL or ID:", classes="label")
+        yield Input(value="gZyJJoDw", placeholder="Deck B", id="deck-id-b")
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.log(f"Searching for two decks!")
+        # don't call the event handler of the parent class
+        event.prevent_default()
+        await self.post_message(
+            self.DeckDiffSearch(
+                self,
+                self.query_one("#deck-id-a").value,
+                self.query_one("#deck-id-b").value,
+            )
+        )
 
 
 class CardSearchPanel(Container):
@@ -389,19 +457,44 @@ class FabDeckBrowser(Screen):
         panel = self.query_one("#search-panel")
         if panel.has_class("-hidden"):
             panel.remove_class("-hidden")
-            panel.query_one("Input").focus()
+            panel.query("Input").first().focus()
         else:
             panel.add_class("-hidden")
+
+
+class FabDeckDiffBrowser(FabDeckBrowser):
+    """
+    A FabDeckBrowser that searches for and diffs two decks
+    """
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Container(DeckDiffListWidget(), id="card-list")
+        yield Vertical(
+            CardWidget(),
+            id="right-panel",
+        )
+        yield DeckDiffSelector(id="search-panel")
+        yield Footer()
+
+    def on_deck_diff_selector_deck_diff_search(self, event: DeckDiffSelector.DeckDiffSearch) -> None:
+        a = self.client.get_deck(event.a_query)
+        b = self.client.get_deck(event.b_query)
+        self.deck = FabDeckDiff(a, b)
+        self.action_toggle_search()
+        self.log(self.deck)
+        self.query_one("CardListWidget").card_list = self.deck
+        #self.query_one("CardListWidget").query("CardListbutton").first().focus()
 
 
 class FabDBApp(App):
     CSS_PATH = ["card.css", "card_list.css", "app.css"]
     SCREENS = {
         "decks": FabDeckBrowser(),
+        "diff": FabDeckDiffBrowser(),
     }
     BINDINGS = [
         ("d", "app.push_screen('decks')", "Deck Search"),
-        ("t", "app.push_screen('test')", "Test"),
+        ("f", "app.push_screen('diff')", "Deck Diff"),
     ]
 
     def __init__(self, config: FabDBCLIConfig = None):
