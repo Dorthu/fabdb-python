@@ -16,3 +16,6 @@ from fabdb.client.extended import (
     FabCardDiff,
     FabDeckDiff,
 )
+from fabdb.client.filtering import (
+    CardFilter,
+)
