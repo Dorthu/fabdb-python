@@ -1,32 +1,55 @@
+from __future__ import annotations
+
 from enum import Enum
 import re
-from typing import Any, Callable, List
+from typing import Any, Callable, Dict, List
 
 from fabdb.client import FabCard
+
+
+# we use this to ensure that field passed to CardFilters are valid fields on
+# FabCard; we don't care that it has no values populated
+CARD_TEMPLATE = FabCard({})
 
 class Comparison:
     """
     Abstract base class for all Comparisons
     """
-    def __init__(self, matcher: Callable[[Any, Any], bool]):
+    def __init__(
+        self,
+        matcher: Callable[[Any, Any], bool],
+        allowed_types: List[Any] = None
+    ):
+        """
+        :param matcher: A callable that returns true if this comparison matches
+        :param allowed_types: A list of python types this comparison accepts.  If
+                              None (the default), any type is allowed.
+        """
         self.matcher = matcher
+        self.allowed_types = allowed_types
 
     def matches(self, value: Any, target: Any) -> bool:
         """
         Returns True if the given card matches this comparison, otherwise False
         """
+        if self.allowed_types is not None and type(target) not in self.allowed_types:
+            raise ValueError(
+                f"Comparison received target {target}, but only supports "
+                f"{', '.join([str(c) for c in self.allowed_types])}",
+            )
+
         return self.matcher(value, target)
 
 
 #: This table defines the supported Comparisons
 lookup_table = {
-    "lt": Comparison(lambda v, t: v < t),
-    "lte": Comparison(lambda v, t: v <= t),
-    "gt": Comparison(lambda v, t: v > t),
-    "gte": Comparison(lambda v, t: v >= t),
+    "lt": Comparison(lambda v, t: v < t, [int, float]),
+    "lte": Comparison(lambda v, t: v <= t, [int, float]),
+    "gt": Comparison(lambda v, t: v > t, [int, float]),
+    "gte": Comparison(lambda v, t: v >= t, [int, float]),
     "eq": Comparison(lambda v, t: v == t),
     "contains": Comparison(lambda v, t: t in v),
-    "regex": Comparison(lambda v, t: re.search(t, v, re.IGNORECASE)),
+    "regex": Comparison(lambda v, t: re.search(t, v, re.IGNORECASE), [str]),
 }
 
 
@@ -46,7 +69,12 @@ class CardFilter:
         :param target: The value we're comparing to.  Must be of a type acceptable
                        to the comparison given.
         """
-        # TODO: Raise ValueError if field isn't a field of FabCard
+        if not hasattr(CARD_TEMPLATE, field):
+            raise ValueError(
+                f"Cannot filter on unknown field {field}; "
+                "use a valid field of FabCard",
+            )
+
         self.field = field
         
         if comparison not in lookup_table:
@@ -55,6 +83,7 @@ class CardFilter:
                 f"{', '.join(lookup_table.keys())}",
             )
         self.comparison = lookup_table[comparison]
+        self._comparison = comparison
 
         self.target = target
 
@@ -82,3 +111,26 @@ class CardFilter:
             self._get_field_value(c),
             self.target,
         )]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Returns this CardFilter as a serialized python dict
+        """
+        return {
+            "field": self.field,
+            "comparison": self._comparison,
+            "target": self.target,
+        }
+
+    @classmethod
+    def from_dict(cls, dct: Dict[str, Any]) -> CardFilter:
+        """
+        Given a python dict, like that from to_dict above, returns a CardFilter
+        object with the given values
+        """
+        if missing := {"field", "comparison", "target"} - set(dct.keys()):
+            raise ValueError(f"Keys {', '.join(missing)} are required")
+
+        return CardFilter(
+            dct["field"], dct["comparison"], dct["target"],
+        )
