@@ -48,6 +48,7 @@ lookup_table = {
     "gt": Comparison(lambda v, t: v > t, [int, float]),
     "gte": Comparison(lambda v, t: v >= t, [int, float]),
     "eq": Comparison(lambda v, t: v == t),
+    "neq": Comparison(lambda v, t: v != t),
     "contains": Comparison(lambda v, t: t in v),
     "regex": Comparison(lambda v, t: re.search(t, v, re.IGNORECASE), [str]),
 }
@@ -134,3 +135,34 @@ class CardFilter:
         return CardFilter(
             dct["field"], dct["comparison"], dct["target"],
         )
+
+
+class Operator(Enum):
+    and_ = "and"
+    or_ = "or"
+
+
+class CardMultiFilter(CardFilter):
+    """
+    Represents a combination of multiple filters; i.e. "All Ice cards that are Blue"
+    or "All Attack and Defense Reactions"
+    """
+    def __init__(self, operator: Operator = Operator.and_, *filters: CardFilter):
+        self.operator = operator
+        self.filters = filters
+
+    def apply(self, cards: List[FabCard]) -> List[FabCard]:
+        """
+        Applies all included filters to a card list, returning a list of cards
+        matching them
+        """
+        result_sets = []
+        for c in self.filters:
+            result_sets.append(set(c.apply(cards)))
+
+        if self.operator == Operator.and_:
+            r = result_sets[0]
+            for s in result_sets[1:]:
+                r = r.intersection(s)
+            return list(r)
+        raise NotImplemented("Penny woke up!")
